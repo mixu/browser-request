@@ -78,7 +78,7 @@ function request(options, callback) {
     else if(typeof options.body !== 'string')
       options.body = JSON.stringify(options.body)
   }
-  
+
   //BEGIN QS Hack
   var serialize = function(obj) {
     var str = [];
@@ -88,7 +88,7 @@ function request(options, callback) {
       }
     return str.join("&");
   }
-  
+
   if(options.qs){
     var qs = (typeof options.qs == 'string')? options.qs : serialize(options.qs);
     if(options.uri.indexOf('?') !== -1){ //no get params
@@ -98,7 +98,7 @@ function request(options, callback) {
     }
   }
   //END QS Hack
-  
+
   //BEGIN FORM Hack
   var multipart = function(obj) {
     //todo: support file type (useful?)
@@ -121,7 +121,7 @@ function request(options, callback) {
     result.type = 'multipart/form-data; boundary='+result.boundry;
     return result;
   }
-  
+
   if(options.form){
     if(typeof options.form == 'string') throw('form name unsupported');
     if(options.method === 'POST'){
@@ -286,6 +286,47 @@ request.DEFAULT_TIMEOUT = DEFAULT_TIMEOUT;
 // defaults
 //
 
+function deepmerge(target, src) {
+    var array = Array.isArray(src);
+    var dst = array && [] || {};
+
+    if (array) {
+        target = target || [];
+        dst = dst.concat(target);
+        src.forEach(function(e, i) {
+            if (typeof dst[i] === 'undefined') {
+                dst[i] = e;
+            } else if (typeof e === 'object') {
+                dst[i] = deepmerge(target[i], e);
+            } else {
+                if (target.indexOf(e) === -1) {
+                    dst.push(e);
+                }
+            }
+        });
+    } else {
+        if (target && typeof target === 'object') {
+            Object.keys(target).forEach(function (key) {
+                dst[key] = target[key];
+            })
+        }
+        Object.keys(src).forEach(function (key) {
+            if (typeof src[key] !== 'object' || !src[key]) {
+                dst[key] = src[key];
+            }
+            else {
+                if (!target[key]) {
+                    dst[key] = src[key];
+                } else {
+                    dst[key] = deepmerge(target[key], src[key]);
+                }
+            }
+        });
+    }
+
+    return dst;
+}
+
 request.defaults = function(options, requester) {
   var def = function (method) {
     var d = function (params, callback) {
@@ -294,9 +335,7 @@ request.defaults = function(options, requester) {
       else {
         params = JSON.parse(JSON.stringify(params));
       }
-      for (var i in options) {
-        if (params[i] === undefined) params[i] = options[i]
-      }
+      params = deepmerge(params, options);
       return method(params, callback)
     }
     return d
